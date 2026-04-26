@@ -1,0 +1,85 @@
+@import url('https://googleapis.com');
+
+:root {
+    --bg-color: #050505;
+    --neon-blue: #00f2ff;
+    --neon-red: #ff003c;
+    --text-color: #00f2ff;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Share Tech Mono', monospace;
+    margin: 0; padding: 15px;
+}
+
+/* Navigation par Onglets */
+.tab-container {
+    display: flex;
+    width: 100%;
+    margin-bottom: 20px;
+    position: sticky; top: 0; z-index: 100;
+    background: var(--bg-color);
+}
+
+.tab-btn {
+    flex: 1; padding: 15px;
+    background: #111; border: 1px solid #333;
+    color: #555; font-family: 'Share Tech Mono';
+    font-weight: bold; cursor: pointer;
+}
+
+.tab-btn.active.blue { color: var(--neon-blue); border-color: var(--neon-blue); background: rgba(0,242,255,0.1); }
+.tab-btn.active.red { color: var(--neon-red); border-color: var(--neon-red); background: rgba(255,0,60,0.1); }
+
+/* Cartes & Accordéons */
+.card {
+    background: rgba(20, 20, 25, 0.9);
+    border: 1px solid var(--neon-blue);
+    margin-bottom: 15px; padding: 10px;
+}
+
+.card.vilain { border-color: var(--neon-red); }
+
+.card-header {
+    font-weight: bold; padding-bottom: 5px;
+    border-bottom: 1px solid #333; margin-bottom: 10px;
+}
+
+/* Style des compétences (Collapse) */
+details {
+    background: rgba(255,255,255,0.05);
+    margin-bottom: 5px; border-radius: 3px;
+}
+
+summary {
+    padding: 10px; cursor: pointer;
+    list-style: none; display: flex; justify-content: space-between;
+    color: var(--neon-blue); border: 1px solid rgba(0,242,255,0.2);
+}
+
+.vilain summary { color: var(--neon-red); border-color: rgba(255,0,60,0.2); }
+
+summary::-webkit-details-marker { display: none; }
+
+.skill-content {
+    padding: 10px; font-size: 0.9em;
+    color: #ccc; border-top: 1px solid #333;
+}
+
+.hidden { display: none !important; }
+
+/* Boutons & Inputs */
+.search-box, .btn-action {
+    width: 100%; padding: 15px; background: #000;
+    border: 1px solid var(--neon-blue); color: var(--neon-blue);
+    font-family: 'Share Tech Mono'; margin-top: 10px;
+}
+
+.tab-container .tab-btn:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+}

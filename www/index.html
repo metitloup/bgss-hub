@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WayneTech - Tactical HUD</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .card.leader { opacity: 1; border-style: solid; border-width: 2px; }
+        .card.minion { opacity: 0.5; border-style: dashed; border-width: 1px; transform: scale(0.98); margin-top: -5px; }
+        .card.vilains { border-color: var(--neon-red) !important; box-shadow: 0 0 15px rgba(255, 0, 60, 0.2); }
+        .card.vilains .card-header { color: var(--neon-red) !important; }
+        .card.vilains details summary { color: var(--neon-red) !important; border-color: rgba(255, 0, 60, 0.3) !important; }
+        .card.vilains details[open] summary { background: rgba(255, 0, 60, 0.1) !important; }
+        .card.vilains .skill-content { border-left: 2px solid var(--neon-red) !important; }
+        .vs-col-red select, .vs-col-red .btn-add { border-color: var(--neon-red) !important; color: var(--neon-red) !important; }
+        #preview-vilains .removable-item { border-color: rgba(255, 0, 60, 0.4); color: var(--neon-red); }
+        #preview-vilains .removable-item:hover { background: rgba(255, 0, 60, 0.2); border-color: var(--neon-red); }
+        .vs-grid { display: flex; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
+        .vs-col { flex: 1; min-width: 140px; }
+        .preview-box { margin-top: 10px; padding: 10px; min-height: 40px; background: rgba(0,0,0,0.4); border-radius: 4px; font-size: 0.8em; }
+        .removable-item { cursor: pointer; padding: 6px; margin-bottom: 5px; border: 1px solid rgba(0, 242, 255, 0.4); display: flex; justify-content: space-between; color: var(--neon-blue); }
+        .stats-icons-row { display: flex; justify-content: space-around; background: rgba(0,0,0,0.8); padding: 10px 5px; border: 1px solid #444; margin: 10px 0; }
+        .stat-unit { text-align: center; display: flex; flex-direction: column; align-items: center; }
+        .stat-icon { font-size: 1.2em; margin-bottom: 2px; }
+        .stat-val { font-weight: bold; color: #fff; font-family: 'Share Tech Mono'; font-size: 1.2em; }
+        .btn-add { width: 100%; padding: 10px; background: none; border: 1px solid var(--neon-blue); color: var(--neon-blue); font-family: 'Share Tech Mono'; cursor: pointer; margin-top: 5px;}
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Éléments Audio -->
+    <audio id="snd-scen" src="sound/cyberpunk-message.mp3" preload="auto"></audio>
+    <audio id="snd-vs" src="sound/cyberpunk-alerte.mp3" preload="auto"></audio>
+
+    <header id="setup-ui">
+        <h1>[ WAYNE_ENT_HUD ]</h1>
+        <div class="tab-container" style="margin-bottom:20px;">
+            <button id="m-btn-scen" class="tab-btn active blue" onclick="setAppMode('scen')">SCÉNARIO</button>
+            <button id="m-btn-vs" class="tab-btn" onclick="setAppMode('vs')">VERSUS</button>
+        </div>
+
+        <div id="ui-scen" class="card">
+            <label>// CHARGER_MISSION :</label>
+            <select id="scen-select" class="search-box" onchange="prepMission()"><option value="">-- SÉLECTION --</option></select>
+            <div id="selection-zone" class="hidden" style="margin-top:10px;">
+                <div id="slot-selectors"></div>
+                <button class="btn-action" onclick="startCombat()">ENGAGER_MISSION</button>
+            </div>
+        </div>
+
+        <div id="ui-vs" class="card hidden">
+            <div class="vs-grid">
+                <div class="vs-col">
+                    <label style="color:var(--neon-blue)">// HÉROS</label>
+                    <select id="vs-pick-heros" class="search-box"></select>
+                    <button class="btn-add" onclick="addToVs('heros')">+ AJOUTER</button>
+                    <div id="preview-heros" class="preview-box"></div>
+                </div>
+                <div class="vs-col vs-col-red">
+                    <label style="color:var(--neon-red)">// VILAINS</label>
+                    <select id="vs-pick-vilains" class="search-box"></select>
+                    <button class="btn-add" onclick="addToVs('vilains')">+ AJOUTER</button>
+                    <div id="preview-vilains" class="preview-box"></div>
+                </div>
+            </div>
+            <button class="btn-action" onclick="startCombat()" style="margin-top:20px;">LANCER_DUEL_VERSUS</button>
+        </div>
+    </header>
+
+    <div id="combat-ui" class="hidden">
+        <div class="tab-container">
+            <button class="tab-btn" onclick="goBack()" style="flex:0.2;">
+                <svg viewBox="0 0 24 24" style="width:20px; fill:currentColor;"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            </button>
+            <button id="btn-tab-heros" class="tab-btn active blue" onclick="switchTab('heros')">HÉROS</button>
+            <button id="btn-tab-vilains" class="tab-btn red" onclick="switchTab('vilains')">VILAINS</button>
+        </div>
+        <div id="tab-heros"></div>
+        <div id="tab-vilains" class="hidden"></div>
+    </div>
+
+    <script>
+        let db = { scenario:[], personnage:[], scenario_equipe:[], Competence:[], perso_fiche:[], personnage_stats_fixes:[] };
+        let appMode = 'scen';
+        let vsList = { heros: [], vilains: [] };
+
+        async function init() {
+            try {
+                const res = await fetch('data.json');
+                const raw = await res.json();
+                db = { ...db, ...raw };
+                const sel = document.getElementById('scen-select');
+                sel.innerHTML = '<option value="">-- SÉLECTION --</option>';
+                db.scenario.sort((a,b) => parseInt(a.scen_id) - parseInt(b.scen_id)).forEach((s, i) => {
+                    sel.innerHTML += `<option value="${s.scen_id}">${i + 1}. ${s.scen_nom}</option>`;
+                });
+                updateVsMenus();
+            } catch (e) { console.error("ERR", e); }
+        }
+
+        function setAppMode(m) {
+            appMode = m;
+            document.getElementById('ui-scen').classList.toggle('hidden', m !== 'scen');
+            document.getElementById('ui-vs').classList.toggle('hidden', m !== 'vs');
+            document.getElementById('m-btn-scen').className = `tab-btn ${m==='scen'?'active blue':''}`;
+            document.getElementById('m-btn-vs').className = `tab-btn ${m==='vs'?'active blue':''}`;
+        }
+
+        function getSortedList(ids) {
+            const weights = { "1": 1, "3": 1, "2": 10, "4": 10 };
+            return ids.map(id => db.personnage.find(p => p.person_id == id))
+                      .filter(x => x)
+                      .sort((a, b) => {
+                          const wA = weights[a.personnage_type_id] || 99;
+                          const wB = weights[b.personnage_type_id] || 99;
+                          if (wA !== wB) return wA - wB;
+                          return a.person_nom.localeCompare(b.person_nom);
+                      });
+        }
+
+        function updateVsMenus() {
+            const taken = [...vsList.heros, ...vsList.vilains].map(id => parseInt(id));
+            const validIds = db.personnage_stats_fixes.map(s => parseInt(s.psf_person_id));
+            const hL = db.personnage.filter(p => [1,4].includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && validIds.includes(parseInt(p.person_id)));
+            const vL = db.personnage.filter(p => [2,3].includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && validIds.includes(parseInt(p.person_id)));
+            document.getElementById('vs-pick-heros').innerHTML = hL.sort((a,b) => a.person_nom.localeCompare(b.person_nom)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
+            document.getElementById('vs-pick-vilains').innerHTML = vL.sort((a,b) => a.person_nom.localeCompare(b.person_nom)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
+            renderPreviews();
+        }
+
+        function addToVs(camp) {
+            const id = document.getElementById(camp === 'heros' ? 'vs-pick-heros' : 'vs-pick-vilains').value;
+            if(id) { vsList[camp].push(id); updateVsMenus(); }
+        }
+
+        function removeFromVs(camp, id) {
+            vsList[camp] = vsList[camp].filter(item => item != id);
+            updateVsMenus();
+        }
+
+        function renderPreviews() {
+            ['heros', 'vilains'].forEach(camp => {
+                const cont = document.getElementById(camp === 'heros' ? 'preview-heros' : 'preview-vilains');
+                cont.innerHTML = vsList[camp].map(id => {
+                    const p = db.personnage.find(i => i.person_id == id);
+                    return `<div class="removable-item" onclick="removeFromVs('${camp}', ${id})">${p.person_nom} <span>×</span></div>`;
+                }).join('');
+            });
+        }
+
+        function prepMission() {
+            const sid = document.getElementById('scen-select').value;
+            if(!sid) return;
+            document.getElementById('selection-zone').classList.remove('hidden');
+            const cont = document.getElementById('slot-selectors');
+            cont.innerHTML = "";
+            const links = db.scenario_equipe.filter(l => l.se_scen_id == sid);
+            const slots = [...new Set(links.filter(l => l.se_slot > 0).map(l => l.se_slot))].sort();
+            slots.forEach(slotId => {
+                const pIds = links.filter(l => l.se_slot == slotId).map(l => l.se_person_id);
+                const sortedChoices = getSortedList(pIds);
+                cont.innerHTML += `<div class="card" style="margin-bottom:8px;"><label>SLOT ${slotId}</label><select class="search-box slot-in">${sortedChoices.map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('')}</select></div>`;
+            });
+        }
+
+        function startCombat() {
+            // --- LOGIQUE AUDIO ---
+            if (appMode === 'vs') {
+                document.getElementById('snd-vs').play();
+            } else {
+                document.getElementById('snd-scen').play();
+            }
+
+            const hCont = document.getElementById('tab-heros');
+            const vCont = document.getElementById('tab-vilains');
+            hCont.innerHTML = ""; vCont.innerHTML = "";
+            let fH = []; let fV = [];
+            if(appMode === 'scen') {
+                const sid = document.getElementById('scen-select').value;
+                fH = getSortedList(Array.from(document.querySelectorAll('.slot-in')).map(s => s.value));
+                fV = getSortedList(db.scenario_equipe.filter(l => l.se_scen_id == sid && l.se_slot == 0).map(l => l.se_person_id));
+            } else {
+                fH = getSortedList(vsList.heros); fV = getSortedList(vsList.vilains);
+            }
+            fH.forEach(p => hCont.innerHTML += createCard(p.person_id, 'heros'));
+            fV.forEach(p => vCont.innerHTML += createCard(p.person_id, 'vilains'));
+            document.getElementById('setup-ui').classList.add('hidden');
+            document.getElementById('combat-ui').classList.remove('hidden');
+        }
+
+        function createCard(pId, camp) {
+            const p = db.personnage.find(i => Number(i.person_id) === Number(pId));
+            if(!p) return "";
+            const type = parseInt(p.personnage_type_id);
+            const isMinion = [2,4].includes(type);
+            const targetType = (appMode === 'vs') ? 'versus' : 'adventure';
+            const st = db.personnage_stats_fixes.find(s => Number(s.psf_person_id) === Number(pId)) || {};
+
+            let statsHtml = "";
+            if (appMode === 'vs' || camp === 'vilains') {
+                statsHtml = `<div class="stats-icons-row">
+                    <div class="stat-unit"><span class="stat-icon">🛡️</span><span class="stat-val">${st.psf_def_auto ?? 0}</span></div>
+                    <div class="stat-unit"><span class="stat-icon">🥾</span><span class="stat-val">+${st.psf_move_bonus ?? 0}</span></div>
+                    <div class="stat-unit"><span class="stat-icon">📐</span><span class="stat-val">${st.psf_envergure ?? 0}</span></div>
+                    <div class="stat-unit"><span class="stat-icon">💰</span><span class="stat-val">${st.psf_prix ?? 0}</span></div>
+                </div>`;
+            }
+
+            let filteredFiche = db.perso_fiche.filter(f => Number(f.perso_fiche_perso_id || f.psf_person_id) === Number(pId));
+            let specificFiche = filteredFiche.filter(f => f.fiche_type === targetType || f.fiche_type === 'aventure');
+            const finalFiche = specificFiche.length > 0 ? specificFiche : filteredFiche;
+
+            const skills = finalFiche.map(f => {
+                const c = db.Competence.find(item => Number(item.comp_id || item.id) === Number(f.perso_fiche_comp_id || f.comp_id));
+                if(!c) return "";
+                const valX = f.perso_fiche_comp_valeur || f.psf_comp_valeur || "X";
+                const desc = (c.comp_effet || "").replace(/\\r\\n/g, ' ').replace(/\\rn/g, ' ').replace(/([a-zàâçéèêëîïôûù])rn([a-zàâçéèêëîïôûù])/gi, '$1 $2').replace(/\[X\]/g, `<b style="color:#fff">${valX}</b>`);
+                return `<details class="${camp}"><summary>${c.comp_nom} <span>+</span></summary><div class="skill-content">${desc}</div></details>`;
+            }).join("");
+
+            return `<div class="card ${camp} ${isMinion?'minion':'leader'}">
+                <div class="card-header" style="color:${camp==='heros'?'var(--neon-blue)':'var(--neon-red)'}">${p.person_nom} <span style="float:right; color:#fff;">PV:${p.person_pv || '?'}</span></div>
+                ${statsHtml}${skills}</div>`;
+        }
+
+        function switchTab(t) {
+            document.getElementById('tab-heros').classList.toggle('hidden', t !== 'heros');
+            document.getElementById('tab-vilains').classList.toggle('hidden', t !== 'vilains');
+            document.getElementById('btn-tab-heros').className = `tab-btn ${t==='heros'?'active blue':''}`;
+            document.getElementById('btn-tab-vilains').className = `tab-btn ${t==='vilains'?'active red':''}`;
+        }
+        function goBack() { document.getElementById('combat-ui').classList.add('hidden'); document.getElementById('setup-ui').classList.remove('hidden'); }
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
