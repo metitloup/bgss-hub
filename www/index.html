@@ -98,13 +98,14 @@
                 const res = await fetch('data.json');
                 const raw = await res.json();
                 db = { ...db, ...raw };
+                db.personnage_stats_fixes = raw.personnage_stats_fixes || [];
 
                 const sel = document.getElementById('scen-select');
                 db.scenario.sort((a,b) => parseInt(a.scen_id) - parseInt(b.scen_id)).forEach((s, i) => {
                     sel.innerHTML += `<option value="${s.scen_id}">${i + 1}. ${s.scen_nom}</option>`;
                 });
 
-                loadState(); // Restaurer la mémoire après chargement des données
+                loadState();
                 updateVsMenus();
             } catch (e) { console.error("ERR_DB", e); }
         }
@@ -150,10 +151,13 @@
         function updateVsMenus() {
             const taken = [...vsList.heros, ...vsList.vilains].map(id => parseInt(id));
             const valid = db.personnage_stats_fixes.map(s => parseInt(s.psf_person_id));
-            const filter = (types) => db.personnage.filter(p => types.includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && valid.includes(parseInt(p.person_id)));
 
-            document.getElementById('vs-pick-heros').innerHTML = getSortedList(filter([1,4]).map(x=>x.person_id)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
-            document.getElementById('vs-pick-vilains').innerHTML = getSortedList(filter([2,3]).map(x=>x.person_id)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
+            // FILTRES CORRIGÉS ICI (IDS 1,4 et 2,3 réintégrés)
+            const hList = db.personnage.filter(p => [1, 4].includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && valid.includes(parseInt(p.person_id)));
+            const vList = db.personnage.filter(p => [2, 3].includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && valid.includes(parseInt(p.person_id)));
+
+            document.getElementById('vs-pick-heros').innerHTML = getSortedList(hList.map(x=>x.person_id)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
+            document.getElementById('vs-pick-vilains').innerHTML = getSortedList(vList.map(x=>x.person_id)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
             renderPreviews();
         }
 
@@ -163,7 +167,6 @@
         }
 
         function removeFromVs(camp, id) { vsList[camp] = vsList[camp].filter(i => i != id); updateVsMenus(); saveState(); }
-
         function resetVsLists() { vsList = { heros: [], vilains: [] }; updateVsMenus(); saveState(); }
 
         function renderPreviews() {
@@ -188,7 +191,10 @@
                 cont.innerHTML += `<div class="card" style="margin-bottom:8px;"><label>SLOT ${slotId}</label><select class="search-box slot-in" data-slot="${slotId}" onchange="updateSlotChoice(this)">${sorted.map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('')}</select></div>`;
                 if (restoring && scenarioSelections[slotId]) {
                     setTimeout(() => { document.querySelector(`select[data-slot="${slotId}"]`).value = scenarioSelections[slotId]; }, 10);
-                } else { scenarioSelections[slotId] = document.querySelector(`select[data-slot="${slotId}"]`).value; }
+                } else {
+                    const firstVal = document.querySelector(`select[data-slot="${slotId}"]`)?.value;
+                    if(firstVal) scenarioSelections[slotId] = firstVal;
+                }
             });
             saveState();
         }
@@ -215,26 +221,33 @@
         function createCard(pId, camp) {
             const p = db.personnage.find(i => Number(i.person_id) === Number(pId));
             if(!p) return "";
-            const isMinion = [2,4].includes(parseInt(p.personnage_type_id));
             const st = db.personnage_stats_fixes.find(s => Number(s.psf_person_id) === Number(pId)) || {};
-            const stats = (appMode === 'vs' || camp === 'vilains') ? `<div class="stats-icons-row">
+            const type = parseInt(p.personnage_type_id);
+            const isMinion = (type === 2 || type === 4);
+            const targetType = (appMode === 'vs') ? 'versus' : 'scenario';
+
+            let statsHtml = (appMode === 'vs' || camp === 'vilains') ? `<div class="stats-icons-row">
                 <div class="stat-unit"><span class="stat-icon">🛡️</span><span class="stat-val">${st.psf_def_auto ?? 0}</span></div>
                 <div class="stat-unit"><span class="stat-icon">🥾</span><span class="stat-val">+${st.psf_move_bonus ?? 0}</span></div>
                 <div class="stat-unit"><span class="stat-icon">📐</span><span class="stat-val">${st.psf_envergure ?? 0}</span></div>
                 <div class="stat-unit"><span class="stat-icon">💰</span><span class="stat-val">${st.psf_prix ?? 0}</span></div>
             </div>` : "";
-            const skills = db.perso_fiche.filter(f => Number(f.perso_fiche_perso_id || f.psf_person_id) === Number(pId))
-                .filter(f => f.fiche_type === (appMode === 'vs' ? 'versus' : 'adventure') || f.fiche_type === 'aventure')
-                .map(f => {
-                    const c = db.Competence.find(i => Number(i.comp_id || i.id) === Number(f.perso_fiche_comp_id || f.comp_id));
-                    if(!c) return "";
-                    const valX = f.perso_fiche_comp_valeur || f.psf_comp_valeur || "X";
-                    const desc = (c.comp_effet || "").replace(/\\r\\n|\\rn/g, ' ').replace(/([a-zàâçéèêëîïôûù])rn([a-zàâçéèêëîïôûù])/gi, '$1 $2').replace(/\[X\]/g, `<b style="color:#fff">${valX}</b>`);
-                    return `<details class="${camp}"><summary>${c.comp_nom} <span>+</span></summary><div class="skill-content">${desc}</div></details>`;
-                }).join("");
+
+            let allPersoFiche = db.perso_fiche.filter(f => Number(f.perso_fiche_perso_id || f.psf_person_id) === Number(pId));
+            let filteredFiche = allPersoFiche.filter(f => f.fiche_type === targetType);
+            const finalFiche = filteredFiche.length > 0 ? filteredFiche : allPersoFiche;
+
+            const skills = finalFiche.map(f => {
+                const c = db.Competence.find(i => Number(i.comp_id || i.id) === Number(f.perso_fiche_comp_id || f.comp_id));
+                if(!c) return "";
+                const valX = f.perso_fiche_comp_valeur || f.psf_comp_valeur || "X";
+                const desc = (c.comp_effet || "").replace(/\\r\\n|\\rn/g, ' ').replace(/([a-zàâçéèêëîïôûù])rn([a-zàâçéèêëîïôûù])/gi, '$1 $2').replace(/\[X\]/g, `<b style="color:#fff">${valX}</b>`);
+                return `<details class="${camp}"><summary>${c.comp_nom} <span>+</span></summary><div class="skill-content">${desc}</div></details>`;
+            }).join("");
+
             return `<div class="card ${camp} ${isMinion?'minion':'leader'}">
                 <div class="card-header" style="color:${camp==='heros'?'var(--neon-blue)':'var(--neon-red)'}">${p.person_nom} <span style="float:right; color:#fff;">PV:${p.person_pv || '?'}</span></div>
-                ${stats}${skills}</div>`;
+                ${statsHtml}${skills}</div>`;
         }
 
         function switchTab(t) {
