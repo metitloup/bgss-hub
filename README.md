@@ -48,9 +48,9 @@ L'interface sera alors accessible via votre navigateur à l'adresse :
 👉 `http://localhost:8080`
 
 ### Gestion du conteneur
-*   **Arrêter le HUD :** `docker composestop`
-*   **Relancer après modification :** `docker composeup -d`
-*   **Voir les logs :** `docker composelogs -f`
+*   **Arrêter le HUD :** `docker compose stop`
+*   **Relancer après modification :** `docker compose up -d`
+*   **Voir les logs :** `docker compose logs -f`
 
 
 ## 🎨 Design System
