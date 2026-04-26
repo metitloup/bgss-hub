@@ -2,6 +2,7 @@
 
 :root {
     --bg-color: #050505;
+    --card-bg: rgba(20, 20, 25, 0.95);
     --neon-blue: #00f2ff;
     --neon-red: #ff003c;
     --text-color: #00f2ff;
@@ -12,74 +13,77 @@ body {
     color: var(--text-color);
     font-family: 'Share Tech Mono', monospace;
     margin: 0; padding: 15px;
+    -webkit-user-select: none; user-select: none;
 }
 
-/* Navigation par Onglets */
+/* Navigation */
 .tab-container {
-    display: flex;
-    width: 100%;
-    margin-bottom: 20px;
-    position: sticky; top: 0; z-index: 100;
-    background: var(--bg-color);
+    display: flex; width: 100%; margin-bottom: 20px;
+    position: sticky; top: 0; z-index: 100; background: var(--bg-color);
 }
-
 .tab-btn {
-    flex: 1; padding: 15px;
-    background: #111; border: 1px solid #333;
-    color: #555; font-family: 'Share Tech Mono';
-    font-weight: bold; cursor: pointer;
+    flex: 1; padding: 15px; background: #111; border: 1px solid #333;
+    color: #555; font-family: 'Share Tech Mono'; font-weight: bold; cursor: pointer;
 }
-
 .tab-btn.active.blue { color: var(--neon-blue); border-color: var(--neon-blue); background: rgba(0,242,255,0.1); }
 .tab-btn.active.red { color: var(--neon-red); border-color: var(--neon-red); background: rgba(255,0,60,0.1); }
 
-/* Cartes & Accordéons */
+/* Cartes & Hiérarchie */
 .card {
-    background: rgba(20, 20, 25, 0.9);
-    border: 1px solid var(--neon-blue);
-    margin-bottom: 15px; padding: 10px;
+    background: var(--card-bg); border: 1px solid var(--neon-blue);
+    margin-bottom: 15px; padding: 12px; position: relative;
 }
+.card.leader { opacity: 1; border-width: 2px; }
+.card.minion { opacity: 0.6; border-style: dashed; transform: scale(0.98); }
 
-.card.vilain { border-color: var(--neon-red); }
+.card.vilains { border-color: var(--neon-red) !important; box-shadow: 0 0 15px rgba(255, 0, 60, 0.2); }
+.card.vilains .card-header { color: var(--neon-red) !important; }
+.card.vilains summary { color: var(--neon-red) !important; border-color: rgba(255,60,60,0.2) !important; }
 
 .card-header {
-    font-weight: bold; padding-bottom: 5px;
-    border-bottom: 1px solid #333; margin-bottom: 10px;
+    font-weight: bold; font-size: 1.1em; padding-bottom: 5px;
+    margin-bottom: 5px; display: flex; justify-content: space-between;
 }
 
-/* Style des compétences (Collapse) */
-details {
-    background: rgba(255,255,255,0.05);
-    margin-bottom: 5px; border-radius: 3px;
+/* Stats en ligne */
+.stats-icons-row {
+    display: flex; flex-direction: row; flex-wrap: wrap;
+    gap: 12px; padding: 5px 0 10px 0; margin-bottom: 5px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
+.stat-unit { display: flex; align-items: center; gap: 4px; }
+.stat-icon { font-size: 0.9em; opacity: 0.8; }
+.stat-val { font-weight: bold; color: #fff; font-size: 1em; }
 
+/* Compétences */
+details { background: rgba(255,255,255,0.03); margin-bottom: 4px; border-radius: 2px; }
 summary {
-    padding: 10px; cursor: pointer;
-    list-style: none; display: flex; justify-content: space-between;
-    color: var(--neon-blue); border: 1px solid rgba(0,242,255,0.2);
+    padding: 8px 10px; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; font-size: 0.9em;
+    border: 1px solid rgba(0,242,255,0.15);
 }
-
-.vilain summary { color: var(--neon-red); border-color: rgba(255,0,60,0.2); }
-
 summary::-webkit-details-marker { display: none; }
+.skill-content { padding: 10px; font-size: 0.85em; color: #bbb; border-top: 1px solid #222; line-height: 1.4; }
 
-.skill-content {
-    padding: 10px; font-size: 0.9em;
-    color: #ccc; border-top: 1px solid #333;
+/* Grilles Versus et Renforts */
+.vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }
+.vs-col { min-width: 0; }
+
+/* FORCE LE ROUGE TOTAL SUR LA COLONNE VILAINS */
+.vs-col-red label { color: var(--neon-red) !important; }
+.vs-col-red select, .vs-col-red .btn-add { border-color: var(--neon-red) !important; color: var(--neon-red) !important; }
+
+.preview-box { margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.4); border-radius: 4px; font-size: 0.8em; min-height: 20px;}
+.removable-item {
+    cursor: pointer; padding: 6px; margin-bottom: 4px; border: 1px solid rgba(0, 242, 255, 0.3);
+    display: flex; justify-content: space-between; color: var(--neon-blue);
 }
+.removable-item.red-item { border-color: rgba(255, 0, 60, 0.3) !important; color: var(--neon-red) !important; }
 
+/* UI Générale */
 .hidden { display: none !important; }
-
-/* Boutons & Inputs */
-.search-box, .btn-action {
-    width: 100%; padding: 15px; background: #000;
-    border: 1px solid var(--neon-blue); color: var(--neon-blue);
-    font-family: 'Share Tech Mono'; margin-top: 10px;
-}
-
-.tab-container .tab-btn:first-child {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000;
+.search-box, .btn-action, .btn-add {
+    width: 100%; padding: 12px; background: #000; border: 1px solid var(--neon-blue);
+    color: var(--neon-blue); font-family: 'Share Tech Mono'; margin-top: 10px;
+    box-sizing: border-box; cursor: pointer; text-transform: uppercase;
 }

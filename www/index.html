@@ -5,26 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WayneTech - Tactical HUD</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .card.leader { opacity: 1; border-style: solid; border-width: 2px; }
-        .card.minion { opacity: 0.5; border-style: dashed; border-width: 1px; transform: scale(0.98); margin-top: -5px; }
-        .card.vilains { border-color: var(--neon-red) !important; box-shadow: 0 0 15px rgba(255, 0, 60, 0.2); }
-        .card.vilains .card-header { color: var(--neon-red) !important; }
-        .card.vilains details summary { color: var(--neon-red) !important; border-color: rgba(255, 0, 60, 0.3) !important; }
-        .card.vilains .skill-content { border-left: 2px solid var(--neon-red) !important; }
-        .vs-col-red select, .vs-col-red .btn-add { border-color: var(--neon-red) !important; color: var(--neon-red) !important; }
-        #preview-vilains .removable-item { border-color: rgba(255, 0, 60, 0.4); color: var(--neon-red); }
-        .vs-grid { display: flex; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
-        .vs-col { flex: 1; min-width: 140px; }
-        .preview-box { margin-top: 10px; padding: 10px; min-height: 40px; background: rgba(0,0,0,0.4); border-radius: 4px; font-size: 0.8em; }
-        .removable-item { cursor: pointer; padding: 6px; margin-bottom: 5px; border: 1px solid rgba(0, 242, 255, 0.4); display: flex; justify-content: space-between; color: var(--neon-blue); }
-        .stats-icons-row { display: flex; justify-content: space-around; background: rgba(0,0,0,0.8); padding: 10px 2px; border: 1px solid #444; margin: 10px 0; }
-        .stat-unit { text-align: center; display: flex; flex-direction: column; align-items: center; flex: 1; }
-        .stat-icon { font-size: 1.1em; margin-bottom: 2px; }
-        .stat-val { font-weight: bold; color: #fff; font-family: 'Share Tech Mono'; font-size: 1.1em; }
-        .btn-add { width: 100%; padding: 10px; background: none; border: 1px solid var(--neon-blue); color: var(--neon-blue); font-family: 'Share Tech Mono'; cursor: pointer; margin-top: 5px;}
-        .hidden { display: none !important; }
-    </style>
 </head>
 <body>
     <audio id="snd-scen" src="sound/cyberpunk-message.mp3" preload="auto"></audio>
@@ -32,25 +12,45 @@
 
     <header id="setup-ui">
         <h1>[ WAYNE_ENT_HUD ]</h1>
-        <div class="tab-container" style="margin-bottom:20px;">
+        <div class="tab-container">
             <button id="m-btn-scen" class="tab-btn active blue" onclick="setAppMode('scen')">SCÉNARIO</button>
             <button id="m-btn-vs" class="tab-btn" onclick="setAppMode('vs')">VERSUS</button>
         </div>
+
         <div id="ui-scen" class="card">
             <label>// MISSION :</label>
             <select id="scen-select" class="search-box" onchange="prepMission()"><option value="">-- SÉLECTION --</option></select>
-            <div id="selection-zone" class="hidden" style="margin-top:10px;"><div id="slot-selectors"></div><button class="btn-action" onclick="startCombat()">ENGAGER_MISSION</button></div>
+            <div id="selection-zone" class="hidden">
+                <div id="slot-selectors" style="margin-top:15px;"></div>
+
+                <div class="vs-grid" style="border-top: 1px solid #333; margin-top: 20px; padding-top: 10px;">
+                    <div class="vs-col">
+                        <label>// RENFORTS_HÉROS</label>
+                        <select id="scen-add-heros" class="search-box"></select>
+                        <button class="btn-add" onclick="addScenReinforcement('heros')">+ AJOUTER</button>
+                        <div id="preview-scen-heros" class="preview-box"></div>
+                    </div>
+                    <div class="vs-col vs-col-red"> <!-- Correction Rouge Scénario -->
+                        <label>// RENFORTS_VILAINS</label>
+                        <select id="scen-add-vilains" class="search-box"></select>
+                        <button class="btn-add" onclick="addScenReinforcement('vilains')">+ AJOUTER</button>
+                        <div id="preview-scen-vilains" class="preview-box"></div>
+                    </div>
+                </div>
+                <button class="btn-action" onclick="startCombat()">ENGAGER_MISSION</button>
+            </div>
         </div>
+
         <div id="ui-vs" class="card hidden">
             <div class="vs-grid">
                 <div class="vs-col">
-                    <label style="color:var(--neon-blue)">// HÉROS</label>
+                    <label>// HÉROS</label>
                     <select id="vs-pick-heros" class="search-box"></select>
                     <button class="btn-add" onclick="addToVs('heros')">+ AJOUTER</button>
                     <div id="preview-heros" class="preview-box"></div>
                 </div>
-                <div class="vs-col vs-col-red">
-                    <label style="color:var(--neon-red)">// VILAINS</label>
+                <div class="vs-col vs-col-red"> <!-- Correction Rouge Versus -->
+                    <label>// VILAINS</label>
                     <select id="vs-pick-vilains" class="search-box"></select>
                     <button class="btn-add" onclick="addToVs('vilains')">+ AJOUTER</button>
                     <div id="preview-vilains" class="preview-box"></div>
@@ -72,7 +72,10 @@
 
     <script>
         let db = { scenario:[], personnage:[], scenario_equipe:[], Competence:[], perso_fiche:[], personnage_stats_fixes:[] };
-        let appMode = 'scen'; let vsList = { heros: [], vilains: [] }; let scenarioSelections = {};
+        let appMode = 'scen';
+        let vsList = { heros: [], vilains: [] };
+        let scenExtras = { heros: [], vilains: [] };
+        let scenarioSelections = {};
 
         async function init() {
             try {
@@ -84,12 +87,12 @@
                 db.scenario.sort((a,b) => parseInt(a.scen_id) - parseInt(b.scen_id)).forEach((s, i) => {
                     sel.innerHTML += `<option value="${s.scen_id}">${i + 1}. ${s.scen_nom}</option>`;
                 });
-                loadState(); updateVsMenus();
-            } catch (e) { console.error(e); }
+                loadState(); updateVsMenus(); updateScenExtraMenus();
+            } catch (e) { console.error("ERR_DB", e); }
         }
 
         function saveState() {
-            const state = { appMode, vsList, scenarioSelections, scenId: document.getElementById('scen-select').value, isCombatActive: !document.getElementById('combat-ui').classList.contains('hidden') };
+            const state = { appMode, vsList, scenExtras, scenarioSelections, scenId: document.getElementById('scen-select').value, isCombatActive: !document.getElementById('combat-ui').classList.contains('hidden') };
             localStorage.setItem('waynetech_state', JSON.stringify(state));
         }
 
@@ -97,9 +100,12 @@
             const saved = localStorage.getItem('waynetech_state');
             if (!saved) return;
             const s = JSON.parse(saved);
-            setAppMode(s.appMode);
+            appMode = s.appMode || 'scen';
             vsList = s.vsList || { heros: [], vilains: [] };
+            scenExtras = s.scenExtras || { heros: [], vilains: [] };
+            setAppMode(appMode);
             if (s.scenId) { document.getElementById('scen-select').value = s.scenId; scenarioSelections = s.scenarioSelections || {}; prepMission(true); }
+            renderScenExtras(); renderVsPreviews();
             if (s.isCombatActive) startCombat(true);
         }
 
@@ -118,40 +124,57 @@
                       .sort((a, b) => (weights[a.personnage_type_id] - weights[b.personnage_type_id]) || a.person_nom.localeCompare(b.person_nom));
         }
 
+        function updateScenExtraMenus() {
+            const userTaken = [...scenExtras.heros, ...scenExtras.vilains].map(id => parseInt(id));
+            const validPsfIds = db.personnage_stats_fixes.filter(s => s.psf_grade !== "QG/Lieutenant").map(s => parseInt(s.psf_person_id));
+
+            // FILTRE SÉCURISÉ : ALLIES (1) ET CIVILS (4) SEULEMENT
+            const pool = db.personnage.filter(p => [1, 4].includes(parseInt(p.personnage_type_id)) && validPsfIds.includes(parseInt(p.person_id)) && !userTaken.includes(parseInt(p.person_id)));
+            const options = `<option value="">-- SÉLECTION --</option>` + pool.sort((a,b) => a.person_nom.localeCompare(b.person_nom)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
+            document.getElementById('scen-add-heros').innerHTML = options;
+            document.getElementById('scen-add-vilains').innerHTML = options;
+        }
+
+        function addScenReinforcement(camp) {
+            const id = document.getElementById(camp === 'heros' ? 'scen-add-heros' : 'scen-add-vilains').value;
+            if(id) { scenExtras[camp].push(id); renderScenExtras(); updateScenExtraMenus(); saveState(); }
+        }
+
+        function removeScenExtra(camp, id) { scenExtras[camp] = scenExtras[camp].filter(i => i != id); renderScenExtras(); updateScenExtraMenus(); saveState(); }
+
+        function renderScenExtras() {
+            ['heros', 'vilains'].forEach(c => {
+                const box = document.getElementById(`preview-scen-${c}`);
+                if(box) box.innerHTML = scenExtras[c].map(id => { const p = db.personnage.find(i => i.person_id == id); return `<div class="removable-item ${c==='vilains'?'red-item':''}" onclick="removeScenExtra('${c}', ${id})">${p.person_nom} <span>×</span></div>`; }).join('');
+            });
+        }
+
         function updateVsMenus() {
             const taken = [...vsList.heros, ...vsList.vilains].map(id => parseInt(id));
             const valid = db.personnage_stats_fixes.map(s => parseInt(s.psf_person_id));
-
-            // --- FILTRAGE RÉTABLI : 1,4 Héros | 2,3 Vilains ---
-            const filterH = db.personnage.filter(p => [1, 4].includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && valid.includes(parseInt(p.person_id)));
-            const filterV = db.personnage.filter(p => [2, 3].includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && valid.includes(parseInt(p.person_id)));
-
-            document.getElementById('vs-pick-heros').innerHTML = getSortedList(filterH.map(x=>x.person_id)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
-            document.getElementById('vs-pick-vilains').innerHTML = getSortedList(filterV.map(x=>x.person_id)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
-            renderPreviews();
+            const fH = db.personnage.filter(p => [1, 4].includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && valid.includes(parseInt(p.person_id)));
+            const fV = db.personnage.filter(p => [2, 3].includes(parseInt(p.personnage_type_id)) && !taken.includes(parseInt(p.person_id)) && valid.includes(parseInt(p.person_id)));
+            document.getElementById('vs-pick-heros').innerHTML = getSortedList(fH.map(x=>x.person_id)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
+            document.getElementById('vs-pick-vilains').innerHTML = getSortedList(fV.map(x=>x.person_id)).map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('');
         }
 
         function addToVs(camp) {
             const id = document.getElementById(camp === 'heros' ? 'vs-pick-heros' : 'vs-pick-vilains').value;
-            if(id && !vsList.heros.includes(id) && !vsList.vilains.includes(id)) { vsList[camp].push(id); updateVsMenus(); saveState(); }
+            if(id && !vsList.heros.includes(id) && !vsList.vilains.includes(id)) { vsList[camp].push(id); updateVsMenus(); renderVsPreviews(); saveState(); }
         }
 
-        function removeFromVs(camp, id) { vsList[camp] = vsList[camp].filter(i => i != id); updateVsMenus(); saveState(); }
-        function resetVsLists() { vsList = { heros: [], vilains: [] }; updateVsMenus(); saveState(); }
+        function removeFromVs(camp, id) { vsList[camp] = vsList[camp].filter(i => i != id); updateVsMenus(); renderVsPreviews(); saveState(); }
+        function resetVsLists() { vsList = { heros: [], vilains: [] }; scenExtras = { heros: [], vilains: [] }; updateVsMenus(); updateScenExtraMenus(); renderScenExtras(); renderVsPreviews(); saveState(); }
 
-        function renderPreviews() {
+        function renderVsPreviews() {
             ['heros', 'vilains'].forEach(c => {
                 const box = document.getElementById(c === 'heros' ? 'preview-heros' : 'preview-vilains');
-                box.innerHTML = vsList[c].map(id => {
-                    const p = db.personnage.find(i => i.person_id == id);
-                    return `<div class="removable-item" onclick="removeFromVs('${c}', ${id})">${p.person_nom} <span>×</span></div>`;
-                }).join('');
+                if(box) box.innerHTML = vsList[c].map(id => { const p = db.personnage.find(i => i.person_id == id); return `<div class="removable-item ${c==='vilains'?'red-item':''}" onclick="removeFromVs('${c}', ${id})">${p.person_nom} <span>×</span></div>`; }).join('');
             });
         }
 
         function prepMission(restoring = false) {
-            const sid = document.getElementById('scen-select').value;
-            if(!sid) return;
+            const sid = document.getElementById('scen-select').value; if(!sid) return;
             document.getElementById('selection-zone').classList.remove('hidden');
             const cont = document.getElementById('slot-selectors'); cont.innerHTML = "";
             const links = db.scenario_equipe.filter(l => l.se_scen_id == sid);
@@ -159,11 +182,10 @@
             slots.forEach(slotId => {
                 const sorted = getSortedList(links.filter(l => l.se_slot == slotId).map(l => l.se_person_id));
                 cont.innerHTML += `<div class="card" style="margin-bottom:8px;"><label>SLOT ${slotId}</label><select class="search-box slot-in" data-slot="${slotId}" onchange="updateSlotChoice(this)">${sorted.map(p => `<option value="${p.person_id}">${p.person_nom}</option>`).join('')}</select></div>`;
-                if (restoring && scenarioSelections[slotId]) {
-                    setTimeout(() => { const el = document.querySelector(`select[data-slot="${slotId}"]`); if(el) el.value = scenarioSelections[slotId]; }, 10);
+                if (restoring && scenarioSelections[slotId]) { setTimeout(() => { const el = document.querySelector(`select[data-slot="${slotId}"]`); if(el) el.value = scenarioSelections[slotId]; }, 10);
                 } else { const val = document.querySelector(`select[data-slot="${slotId}"]`)?.value; if(val) scenarioSelections[slotId] = val; }
             });
-            saveState();
+            updateScenExtraMenus(); saveState();
         }
 
         function updateSlotChoice(el) { scenarioSelections[el.dataset.slot] = el.value; saveState(); }
@@ -172,56 +194,42 @@
             if (!silent) { (appMode === 'vs') ? document.getElementById('snd-vs').play() : document.getElementById('snd-scen').play(); }
             const hCont = document.getElementById('tab-heros'); const vCont = document.getElementById('tab-vilains');
             hCont.innerHTML = ""; vCont.innerHTML = "";
-            let fH = [], fV = [];
+            let hIds = [], vIds = [];
             if(appMode === 'scen') {
                 const sid = document.getElementById('scen-select').value;
-                fH = getSortedList(Array.from(document.querySelectorAll('.slot-in')).map(s => s.value));
-                fV = getSortedList(db.scenario_equipe.filter(l => l.se_scen_id == sid && l.se_slot == 0).map(l => l.se_person_id));
-            } else { fH = getSortedList(vsList.heros); fV = getSortedList(vsList.vilains); }
-            fH.forEach(p => hCont.innerHTML += createCard(p.person_id, 'heros'));
-            fV.forEach(p => vCont.innerHTML += createCard(p.person_id, 'vilains'));
-            document.getElementById('setup-ui').classList.add('hidden');
-            document.getElementById('combat-ui').classList.remove('hidden');
-            saveState();
+                hIds = [...Array.from(document.querySelectorAll('.slot-in')).map(s => s.value), ...scenExtras.heros];
+                vIds = [...db.scenario_equipe.filter(l => l.se_scen_id == sid && l.se_slot == 0).map(l => l.se_person_id), ...scenExtras.vilains];
+            } else { hIds = [...vsList.heros]; vIds = [...vsList.vilains]; }
+            getSortedList(hIds).forEach(p => hCont.innerHTML += createCard(p.person_id, 'heros'));
+            getSortedList(vIds).forEach(p => vCont.innerHTML += createCard(p.person_id, 'vilains'));
+            document.getElementById('setup-ui').classList.add('hidden'); document.getElementById('combat-ui').classList.remove('hidden'); saveState();
         }
 
         function createCard(pId, camp) {
-            const p = db.personnage.find(i => Number(i.person_id) === Number(pId));
-            if(!p) return "";
+            const p = db.personnage.find(i => Number(i.person_id) === Number(pId)); if(!p) return "";
             const st = db.personnage_stats_fixes.find(s => Number(s.psf_person_id) === Number(pId)) || {};
-            const isMinion = ([2, 4].includes(parseInt(p.personnage_type_id)));
-
-            let statsHtml = (appMode === 'vs' || camp === 'vilains') ? `<div class="stats-icons-row">
+            const isMinion = [2, 4].includes(parseInt(p.personnage_type_id));
+            const helpHtml = (st.psf_soutien > 0) ? `<div class="stat-unit"><span class="stat-icon">🤝</span><span class="stat-val">${st.psf_soutien}</span></div>` : "";
+            const costHtml = (st.psf_prix > 0) ? `<div class="stat-unit"><span class="stat-icon">💰</span><span class="stat-val">${st.psf_prix}</span></div>` : "";
+            let statsHtml = `<div class="stats-icons-row">
                 <div class="stat-unit"><span class="stat-icon">🛡️</span><span class="stat-val">${st.psf_def_auto ?? 0}</span></div>
                 <div class="stat-unit"><span class="stat-icon">🥾</span><span class="stat-val">+${st.psf_move_bonus ?? 0}</span></div>
                 <div class="stat-unit"><span class="stat-icon">📐</span><span class="stat-val">${st.psf_envergure ?? 0}</span></div>
                 <div class="stat-unit"><span class="stat-icon">⚠️</span><span class="stat-val">${st.psf_menace ?? 0}</span></div>
-                <div class="stat-unit"><span class="stat-icon">💰</span><span class="stat-val">${st.psf_prix ?? 0}</span></div>
-            </div>` : "";
-
-            let allF = db.perso_fiche.filter(f => Number(f.perso_fiche_perso_id || f.psf_person_id) === Number(pId));
-            let filteredF = allF.filter(f => f.fiche_type === (appMode === 'vs' ? 'versus' : 'scenario'));
+                ${helpHtml}${costHtml}</div>`;
+            const allF = db.perso_fiche.filter(f => Number(f.perso_fiche_perso_id || f.psf_person_id) === Number(pId));
+            const filteredF = allF.filter(f => f.fiche_type === (appMode === 'vs' ? 'versus' : 'scenario'));
             const finalF = filteredF.length > 0 ? filteredF : allF;
-
             const skills = finalF.map(f => {
-                const c = db.Competence.find(i => Number(i.comp_id || i.id) === Number(f.perso_fiche_comp_id || f.comp_id));
-                if(!c) return "";
+                const c = db.Competence.find(i => Number(i.comp_id || i.id) === Number(f.perso_fiche_comp_id || f.comp_id)); if(!c) return "";
                 const valX = f.perso_fiche_comp_valeur || f.psf_comp_valeur || "X";
                 const desc = (c.comp_effet || "").replace(/\\r\\n|\\rn/g, ' ').replace(/([a-zàâçéèêëîïôûù])rn([a-zàâçéèêëîïôûù])/gi, '$1 $2').replace(/\[X\]/g, `<b style="color:#fff">${valX}</b>`);
                 return `<details class="${camp}"><summary>${c.comp_nom} <span>+</span></summary><div class="skill-content">${desc}</div></details>`;
             }).join("");
-
             return `<div class="card ${camp} ${isMinion?'minion':'leader'}"><div class="card-header" style="color:${camp==='heros'?'var(--neon-blue)':'var(--neon-red)'}">${p.person_nom} <span style="float:right; color:#fff;">PV:${p.person_pv || '?'}</span></div>${statsHtml}${skills}</div>`;
         }
 
-        function switchTab(t) {
-            document.getElementById('tab-heros').classList.toggle('hidden', t !== 'heros');
-            document.getElementById('tab-vilains').classList.toggle('hidden', t !== 'vilains');
-            document.getElementById('btn-tab-heros').className = `tab-btn ${t==='heros'?'active blue':''}`;
-            document.getElementById('btn-tab-vilains').className = `tab-btn ${t==='vilains'?'active red':''}`;
-            saveState();
-        }
-
+        function switchTab(t) { document.getElementById('tab-heros').classList.toggle('hidden', t !== 'heros'); document.getElementById('tab-vilains').classList.toggle('hidden', t !== 'vilains'); document.getElementById('btn-tab-heros').className = `tab-btn ${t==='heros'?'active blue':''}`; document.getElementById('btn-tab-vilains').className = `tab-btn ${t==='vilains'?'active red':''}`; saveState(); }
         function goBack() { document.getElementById('combat-ui').classList.add('hidden'); document.getElementById('setup-ui').classList.remove('hidden'); saveState(); }
         document.addEventListener('DOMContentLoaded', init);
     </script>
