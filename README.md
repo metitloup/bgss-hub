@@ -1,8 +1,8 @@
 # 🦇 WayneTech Tactical HUD - Batman GCC
 
-[![Interface](https://shields.io)](#)
-[![JS](https://shields.io)](#)
-[![Docker](https://shields.io)](#)
+> **STATUS:** ACCESS_GRANTED
+> **INTERFACE:** CYBERPUNK_V3
+> **DEPLOYMENT:** DOCKER_READY
 
 Un assistant tactique mobile de table pour le jeu de plateau **Batman: Gotham City Chronicles**. Cette application permet de filtrer les personnages par scénario ou par mode Versus, d'afficher les compétences nettoyées des artefacts SQL, et de consulter les statistiques des tuiles "carton" en temps réel.
 
